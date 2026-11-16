@@ -1,0 +1,62 @@
+
+name: LinkBox CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  test:
+    name: LinkBox 기본 테스트
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 소스 코드 가져오기
+        uses: actions/checkout@v4
+
+      - name: Python 설치
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: 필수 파일 확인
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          required_files = [
+              "index.html",
+              "style.css",
+              "script.js"
+          ]
+
+          for filename in required_files:
+              if not Path(filename).is_file():
+                  raise SystemExit(f"실패: {filename} 파일이 없습니다.")
+              print(f"확인 완료: {filename}")
+
+          print("모든 필수 파일이 존재합니다.")
+          PY
+
+      - name: HTML 연결 확인
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          html = Path("index.html").read_text(encoding="utf-8")
+
+          checks = [
+              'href="style.css"',
+              'src="script.js"'
+          ]
+
+          for item in checks:
+              if item not in html:
+                  raise SystemExit(f"실패: {item} 연결을 확인하세요.")
+              print(f"확인 완료: {item}")
+
+          print("LinkBox 기본 테스트 성공!")
+          PY
