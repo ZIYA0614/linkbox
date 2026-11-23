@@ -1,0 +1,22 @@
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: linkbox
+  namespace: linkbox
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: linkbox
+  template:
+    metadata:
+      labels:
+        app: linkbox
+    spec:
+      containers:
+        - name: linkbox
+          image: ghcr.io/ziya0614/linkbox:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 80
