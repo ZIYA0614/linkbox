@@ -13,7 +13,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
   packages: write
 
 jobs:
@@ -24,22 +24,57 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Repository owner 소문자 변환
+      - name: Set repository owner
         id: repo
         run: echo "owner=$(echo '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')" >> "$GITHUB_OUTPUT"
 
-      - name: GHCR 로그인
-        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3.7.0
+      - name: Login to GHCR
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Docker 이미지 빌드 및 업로드
-        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
+      - name: Build and push Docker image
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8
         with:
           context: .
           push: true
           tags: |
             ghcr.io/${{ steps.repo.outputs.owner }}/linkbox:latest
             ghcr.io/${{ steps.repo.outputs.owner }}/linkbox:${{ github.sha }}
+
+      - name: Update Kubernetes deployment image
+        env:
+          IMAGE: ghcr.io/${{ steps.repo.outputs.owner }}/linkbox:${{ github.sha }}
+        run: |
+          python - <<'PY'
+          import os
+          from pathlib import Path
+
+          path = Path("k8s/deployment.yaml")
+          content = path.read_text(encoding="utf-8")
+
+          old = "image: ghcr.io/ziya0614/linkbox:latest"
+          new = f"image: {os.environ['IMAGE']}"
+
+          if old not in content:
+              raise SystemExit("Deployment image line not found.")
+
+          path.write_text(content.replace(old, new), encoding="utf-8")
+          print(f"Updated image: {new}")
+          PY
+
+      - name: Commit and push deployment update
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git add k8s/deployment.yaml
+
+          if git diff --cached --quiet; then
+            echo "No deployment changes."
+          else
+            git commit -m "Deploy LinkBox image ${GITHUB_SHA}"
+            git push
+          fi
