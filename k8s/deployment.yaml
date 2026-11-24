@@ -16,7 +16,7 @@ spec:
     spec:
       containers:
         - name: linkbox
-          image: ghcr.io/ziya0614/linkbox:fcdb018ea5a450e2be99bc8c6796228bb4bb88a8
+          image: ghcr.io/ziya0614/linkbox:6edd868ec044b00ea7f894d6aa6266d7bba2e565
           imagePullPolicy: Always
           ports:
             - containerPort: 80
