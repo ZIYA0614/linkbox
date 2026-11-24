@@ -26,7 +26,8 @@ jobs:
 
       - name: Set repository owner
         id: repo
-        run: echo "owner=$(echo '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')" >> "$GITHUB_OUTPUT"
+        run: |
+          echo "owner=$(echo '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')" >> "$GITHUB_OUTPUT"
 
       - name: Login to GHCR
         uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9
@@ -50,19 +51,27 @@ jobs:
         run: |
           python - <<'PY'
           import os
+          import re
           from pathlib import Path
 
           path = Path("k8s/deployment.yaml")
           content = path.read_text(encoding="utf-8")
 
-          old = "image: ghcr.io/ziya0614/linkbox:latest"
-          new = f"image: {os.environ['IMAGE']}"
+          pattern = r'(?m)^(\s*image:\s*)ghcr\.io/ziya0614/linkbox:\S+'
 
-          if old not in content:
-              raise SystemExit("Deployment image line not found.")
+          updated, count = re.subn(
+              pattern,
+              lambda match: match.group(1) + os.environ["IMAGE"],
+              content
+          )
 
-          path.write_text(content.replace(old, new), encoding="utf-8")
-          print(f"Updated image: {new}")
+          if count != 1:
+              raise SystemExit(
+                  f"ERROR: Expected 1 image line, found {count}"
+              )
+
+          path.write_text(updated, encoding="utf-8")
+          print(f"Updated image: {os.environ['IMAGE']}")
           PY
 
       - name: Commit and push deployment update
